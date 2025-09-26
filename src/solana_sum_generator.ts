@@ -1,18 +1,43 @@
-// solana_sum_generator_main.ts
-// Main controller for multi-threaded Solana vanity address search
+// solana_sum_generator.ts
+// Multi-threaded Solana vanity address generator (all in one file)
 
 import { Worker } from 'worker_threads';
 import * as os from 'os';
 import * as fs from 'fs';
+import { Keypair } from '@solana/web3.js';
+import bs58 from 'bs58';
 
 const OUTPUT_FILE = 'solana_sum_addresses.txt';
-const targetMatches = 1; // Change as needed
-const suffix = 'summon'; // Change as needed
+const targetMatches = 100; // Change as needed
+const suffix = 'sum'; // Change as needed
 const numWorkers = os.cpus().length;
 
 let found = 0;
 const output: string[] = [];
 const workers: Worker[] = [];
+
+// Worker code as a string
+const workerCode = `
+import { parentPort, workerData } from 'worker_threads';
+import { Keypair } from '@solana/web3.js';
+import bs58 from 'bs58';
+
+const suffix = workerData.suffix;
+console.log('Worker started with suffix:', suffix);
+
+function findVanity() {
+    while (true) {
+        const kp = Keypair.generate();
+        const pubkey = kp.publicKey.toBase58();
+        if (pubkey.endsWith(suffix)) {
+            const privkey = bs58.encode(new Uint8Array(kp.secretKey));
+            parentPort?.postMessage({ pubkey, privkey });
+        }
+    }
+}
+
+findVanity();
+`;
 
 function stopAllWorkers() {
     for (const worker of workers) {
@@ -21,7 +46,8 @@ function stopAllWorkers() {
 }
 
 for (let i = 0; i < numWorkers; i++) {
-    const worker = new Worker('./solana_sum_worker.js', {
+    const worker = new Worker(workerCode, {
+        eval: true,
         workerData: { suffix }
     });
     worker.on('message', (msg) => {
