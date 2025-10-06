@@ -8,7 +8,7 @@ import { Keypair } from '@solana/web3.js';
 import bs58 from 'bs58';
 
 const OUTPUT_FILE = 'solana_sum_addresses.txt';
-const targetMatches = 100; // Change as needed
+const targetMatches = 1000; // Change as needed
 const suffix = 'sum'; // Change as needed
 const numWorkers = os.cpus().length;
 
