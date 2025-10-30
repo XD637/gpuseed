@@ -7,14 +7,18 @@ import * as fs from 'fs';
 import { Keypair } from '@solana/web3.js';
 import bs58 from 'bs58';
 
-const OUTPUT_FILE = 'solana_sum_addresses.txt';
-const targetMatches = 1000; // Change as needed
+const OUTPUT_FILE = 'solana_sum_addresses.json';
+const targetMatches = 500; // Change as needed
 const suffix = 'sum'; // Change as needed
 const numWorkers = os.cpus().length;
 
 let found = 0;
-const output: string[] = [];
 const workers: Worker[] = [];
+
+// Initialize JSON file with empty array
+if (!fs.existsSync(OUTPUT_FILE)) {
+    fs.writeFileSync(OUTPUT_FILE, '[]');
+}
 
 // Worker code as a string
 const workerCode = `
@@ -39,6 +43,25 @@ function findVanity() {
 findVanity();
 `;
 
+function saveToJson(pubkey: string, privkey: string) {
+    try {
+        // Read existing data
+        const existingData = JSON.parse(fs.readFileSync(OUTPUT_FILE, 'utf8'));
+        
+        // Add new entry
+        existingData.push({
+            address: pubkey,
+            privateKey: privkey,
+            used: false
+        });
+        
+        // Write back to file
+        fs.writeFileSync(OUTPUT_FILE, JSON.stringify(existingData, null, 2));
+    } catch (error) {
+        console.error('Error saving to JSON:', error);
+    }
+}
+
 function stopAllWorkers() {
     for (const worker of workers) {
         worker.terminate();
@@ -52,15 +75,26 @@ for (let i = 0; i < numWorkers; i++) {
     });
     worker.on('message', (msg) => {
         if (found < targetMatches) {
-            output.push(`Address: ${msg.pubkey}\nPrivateKey: ${msg.privkey}\n`);
-            console.log(`Found: ${msg.pubkey}`);
+            saveToJson(msg.pubkey, msg.privkey);
+            console.log(`Found ${found + 1}/${targetMatches}: ${msg.pubkey}`);
             found++;
             if (found >= targetMatches) {
-                fs.writeFileSync(OUTPUT_FILE, output.join('\n'));
-                console.log(`Done. Saved to ${OUTPUT_FILE}`);
+                console.log(`Done! All ${targetMatches} addresses saved to ${OUTPUT_FILE}`);
                 stopAllWorkers();
             }
         }
     });
     workers.push(worker);
 }
+
+// Graceful shutdown handling
+process.on('SIGINT', () => {
+    console.log('\nShutting down gracefully...');
+    stopAllWorkers();
+    console.log(`Progress saved! Found ${found} addresses so far in ${OUTPUT_FILE}`);
+    process.exit(0);
+});
+
+console.log(`Started ${numWorkers} workers looking for addresses ending with "${suffix}"`);
+console.log(`Target: ${targetMatches} addresses`);
+console.log(`Saving to: ${OUTPUT_FILE}`);
