@@ -1,1 +1,17 @@
 node_modules/
+dist/
+*.log
+npm-debug.log*
+.env
+.DS_Store
+*.tsbuildinfo
+.idea/
+.vscode/
+coverage/
+
+# OS
+Thumbs.db
+Desktop.ini
+
+# Output
+*.out

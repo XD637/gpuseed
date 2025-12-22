@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 // solana_sum_generator.ts
 // Multi-threaded Solana vanity address generator (all in one file)
 
@@ -6,11 +7,44 @@ import * as os from 'os';
 import * as fs from 'fs';
 import { Keypair } from '@solana/web3.js';
 import bs58 from 'bs58';
+import { Command } from 'commander';
 
-const OUTPUT_FILE = 'solana_sum_addresses.json';
-const targetMatches = 500; // Change as needed
-const suffix = 'sum'; // Change as needed
-const numWorkers = os.cpus().length;
+// Parse CLI arguments
+const program = new Command();
+program
+    .name('solana-vanity-generator')
+    .description('Multi-threaded Solana vanity address generator')
+    .version('1.0.0')
+    .option('-s, --suffix <string>', 'Address suffix to search for', 'sum')
+    .option('-p, --prefix <string>', 'Address prefix to search for (case-sensitive)')
+    .option('-c, --count <number>', 'Number of addresses to generate', '500')
+    .option('-o, --output <file>', 'Output JSON file', 'solana_addresses.json')
+    .option('-w, --workers <number>', 'Number of worker threads (default: CPU cores)')
+    .option('--contains <string>', 'Address must contain this string anywhere')
+    .parse();
+
+const options = program.opts();
+
+const OUTPUT_FILE = options.output;
+const targetMatches = parseInt(options.count);
+const suffix = options.suffix;
+const prefix = options.prefix;
+const contains = options.contains;
+const numWorkers = options.workers ? parseInt(options.workers) : os.cpus().length;
+
+// Warn if pattern is too long
+if (suffix && suffix.length > 4) {
+    console.log(`WARNING: Suffix "${suffix}" is ${suffix.length} characters. This will take exponentially longer to find!`);
+    console.log(`Recommendation: Use 4 or fewer characters for reasonable generation time.\n`);
+}
+if (prefix && prefix.length > 4) {
+    console.log(`WARNING: Prefix "${prefix}" is ${prefix.length} characters. This will take exponentially longer to find!`);
+    console.log(`Recommendation: Use 4 or fewer characters for reasonable generation time.\n`);
+}
+if (contains && contains.length > 4) {
+    console.log(`WARNING: Contains "${contains}" is ${contains.length} characters. This will take exponentially longer to find!`);
+    console.log(`Recommendation: Use 4 or fewer characters for reasonable generation time.\n`);
+}
 
 let found = 0;
 const workers: Worker[] = [];
@@ -26,14 +60,17 @@ import { parentPort, workerData } from 'worker_threads';
 import { Keypair } from '@solana/web3.js';
 import bs58 from 'bs58';
 
-const suffix = workerData.suffix;
-console.log('Worker started with suffix:', suffix);
+const { suffix, prefix, contains } = workerData;
 
 function findVanity() {
     while (true) {
         const kp = Keypair.generate();
         const pubkey = kp.publicKey.toBase58();
-        if (pubkey.endsWith(suffix)) {
+        let matches = true;
+        if (suffix && !pubkey.endsWith(suffix)) matches = false;
+        if (prefix && !pubkey.startsWith(prefix)) matches = false;
+        if (contains && !pubkey.includes(contains)) matches = false;
+        if (matches) {
             const privkey = bs58.encode(new Uint8Array(kp.secretKey));
             parentPort?.postMessage({ pubkey, privkey });
         }
@@ -51,8 +88,7 @@ function saveToJson(pubkey: string, privkey: string) {
         // Add new entry
         existingData.push({
             address: pubkey,
-            privateKey: privkey,
-            used: false
+            privateKey: privkey
         });
         
         // Write back to file
@@ -71,7 +107,7 @@ function stopAllWorkers() {
 for (let i = 0; i < numWorkers; i++) {
     const worker = new Worker(workerCode, {
         eval: true,
-        workerData: { suffix }
+        workerData: { suffix, prefix, contains }
     });
     worker.on('message', (msg) => {
         if (found < targetMatches) {
@@ -95,6 +131,15 @@ process.on('SIGINT', () => {
     process.exit(0);
 });
 
-console.log(`Started ${numWorkers} workers looking for addresses ending with "${suffix}"`);
+// Display search criteria
+const patterns: string[] = [];
+if (suffix) patterns.push(`suffix: "${suffix}"`);
+if (prefix) patterns.push(`prefix: "${prefix}"`);
+if (contains) patterns.push(`contains: "${contains}"`);
+
+console.log(`Solana Vanity Address Generator`);
+console.log(`Started ${numWorkers} workers`);
+console.log(`Searching for addresses with ${patterns.join(', ')}`);
 console.log(`Target: ${targetMatches} addresses`);
-console.log(`Saving to: ${OUTPUT_FILE}`);
+console.log(`Output: ${OUTPUT_FILE}`);
+console.log(`Press Ctrl+C to stop and save progress\n`);

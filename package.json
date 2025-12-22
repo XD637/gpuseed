@@ -1,6 +1,45 @@
 {
+  "name": "solana-vanity-generator",
+  "version": "1.0.0",
+  "description": "Multi-threaded Solana vanity address generator with CLI",
+  "main": "dist/solana_sum_generator.js",
+  "bin": {
+    "solana-vanity-generator": "./dist/solana_sum_generator.js",
+    "svg": "./dist/solana_sum_generator.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/solana_sum_generator.js",
+    "dev": "ts-node src/solana_sum_generator.ts"
+  },
+  "keywords": [
+    "solana",
+    "vanity",
+    "address",
+    "generator",
+    "cli",
+    "blockchain",
+    "cryptocurrency",
+    "wallet"
+  ],
+  "author": "",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/XD637/solana-vanity-generator"
+  },
   "dependencies": {
     "@solana/web3.js": "^1.98.4",
-    "bs58": "^6.0.0"
+    "bs58": "^6.0.0",
+    "commander": "^12.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/bs58": "^4.0.4",
+    "typescript": "^5.3.0",
+    "ts-node": "^10.9.0"
+  },
+  "engines": {
+    "node": ">=16.0.0"
   }
 }
