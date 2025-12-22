@@ -1,5 +1,7 @@
 # Solana Vanity Generator
 
+[![npm version](https://badge.fury.io/js/solana-vanity-generator.svg)](https://www.npmjs.com/package/solana-vanity-generator)
+
 A high-performance, multi-threaded Solana vanity address generator with CLI support.
 
 ## Features
